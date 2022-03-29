@@ -5,11 +5,6 @@
 ;; (http://opensource.franz.com/preamble.html),
 ;; known as the LLGPL.
 
-(cl:eval-when (:compile-toplevel)
-  (cl:load "runtime")
-  (cl:load "unification")
-  (cl:load "st-types"))
-
 (cl:defpackage #:typel-lib
   (:use #:cl)
   (:import-from #:typel-runtime
