@@ -1,0 +1,145 @@
+                        Polymorphism in TypeL
+
+There are two types of identifiers: global and local, and they are
+handled differently, because type of global identifier is known during
+type inference, while type of local identifier is not.
+
+* 1.  Global identifiers
+
+For each occurrence of global identifier, new type with same structure
+is generated.  For example, if we have identifier
+
+,----
+| equal: 'TYPE1 -> 'TYPE1 -> BOOLEAN
+`----
+
+and term
+
+,----
+| (lambda (a b)
+|    (and (equal a 0)
+|         (equal b 'symbol)))
+`----
+
+inference engine generates new type 'TYPE2 -> 'TYPE2 -> BOOLEAN for
+first occurrence of equal and new type 'TYPE3 -> 'TYPE3 -> BOOLEAN for
+second one.
+
+Creating new type is easy: for every distinct object of GENERIC-TYPE
+we generate unique type and replace all types all together in original
+template type.  For example, TYPE2 was generated for TYPE1 in former
+case and TYPE3 in latter.
+
+Actually, we can perform substitution one-by-one, because all
+substituting types are different from substituted one.
+
+Required functionality is provided by STRICL-TYPES:CLONE-TYPE method.
+
+* 2. Local identifiers
+
+In this case situation is much complicated.
+
+First of all, we must understand what kind of token should have
+generic type.
+
+1.  Let-bound token has generic type in body of let form.
+2.  Letrec-bound token has generic type in body of letrec from.
+
+Note that letrec-bound tokens do not have generic types in
+initializers of letrec-form, because type inference in that case is
+undecidable.  And if f and g are mutually recursive functions, their
+types in their initializers are not polymorphic as well.
+
+We can go further and accept as generic only tokens with lambda-form
+initializers, and only types of arguments of that lambda-forms are
+generic.  Actually, we cannot safely treat any other term as generic.
+;;; TODO: examples
+
+But some arguments cannot have generic type.  For example:
+
+,----
+| (defstricl
+|    ((test a b)
+|       (let ((x (lambda (y) (zerop  (a b y)))))
+|         (and (x 10)
+|              (x 'symbol)))))
+`----
+
+If type of x is POLY-TYPE1 -> BOOLEAN (and type of y is POLY-TYPE1),
+expression is well-typed and test has type
+
+(TYPE1 -> TYPE2 -> INTEGER) -> TYPE1 -> BOOLEAN.
+
+But then (test + 0) is not safe, because (x 'symbol) is (+ 0 'symbol),
+and it is not well-typed expression.
+
+Another restriction may apply: token may have type like
+
+POLY-TYPE1 -> POLY-TYPE1 -> BOOLEAN.  So, this expression is typed:
+
+,----
+| (let ((x (lambda (a b) (equal a b))))
+|   (and (x 10 10)
+|        (x "string" "string")))
+`----
+
+and this expression is not:
+
+,----
+| (let ((x (lambda (a b) (equal a b))))
+|   (and (x 10 "string")
+|        (x "string" 10)))
+`----
+
+* 3. Proposed solution
+
+LET construct is just short-hand for some lambda-expression.  And if
+we will reduce that expression, we will receive "inlined" version of
+the construct.  (LETREC construct is way of exploiting fix-point
+combinator in typed language; it can be replaced with predefined typed
+function fixpoint. [1]  And we can inline recursive functions as well.)
+
+Of course, every inlined instance of let-bound variable may have
+different type, though they all will conform polymorphic type scheme.
+
+Current implementation will "inline" type assertions from let-bound
+variables.  Each inlined version will have own types for polymorphic
+arguments and intermediate values.
+
+The solution may generate O(n^2) equations instead of O(n) in
+simple-type case.  But it is quite simple to understand and fits well
+in classic unification problem.
+
+** 3.1 Implementation
+
+In current implementation every variable had fixed type.  Now every
+occurrence of variable may have fixed type.  Thus, we have to be able
+to generate new type equations for variable.
+
+New type information will be created by distinct function/method.
+Environments will contain lambdas for creating new types equations,
+not just types.
+
+If polymorphic function uses other polymorphic functions from outer
+LET constructs, other lambdas may be called as well, but they are not
+called recursively.
+
+LETREC constructs do not lead to recursion, because bound values are
+not polymorphic inside initializers.
+
+* Literature
+
+[1]  Didier Rémy.  Using, Understanding and Unraveling The OCaml
+     Language
+
+
+(C) 2004  Ivan Boldyrev
+
+;;; Local Variables:                                      ***
+;;; mode: outline                                         ***
+;;; coding: iso-8859-1                                    ***
+;;; ispell-local-dictionary: "english"                    ***
+;;; End:                                                  ***
+
+; LocalWords:  letrec OCaml defstricl zerop POLY TypeL TODO english fixpoint
+; LocalWords:  Didier
