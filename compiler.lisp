@@ -110,7 +110,22 @@ ARITY is number of arguments of function.
 ;;;
 ;;;  IR
 
-(defgeneric make-ir (head tail))
+(eval-when (:compile-toplevel :load-toplevel :execute)
+   (defgeneric make-ir (head tail))
+
+   (defclass variable-elem (ir-element)
+     ((name :initarg form)))
+
+   (defclass constant (ir-element)
+     ((type-info :initarg type-info :accessor type-info)
+      (value :initarg form)))
+
+   (defun make-ir-const (form type)
+     (make-instance 'constant 'form form 'type-info (simple-type-info type)))
+
+   (defun make-ir-var (form)
+     (make-instance 'variable-elem
+                    'form form)))
 
 (defgeneric compile-to-lisp (ir))
 
@@ -124,25 +139,11 @@ ARITY is number of arguments of function.
 (defclass ir-element ()
   ((lisp-form :initarg form :accessor lisp-form)))
 
-(defclass variable-elem (ir-element)
-  ((name :initarg form)))
-
-(defun make-ir-var (form)
-  (make-instance 'variable-elem
-                 'form form))
-
 (defmethod compile-to-lisp ((var variable-elem))
   (lisp-form var))
 
 (defmethod type-description ((var variable-elem))
   (funcall (lookup-type-info (slot-value var 'name))))
-
-(defclass constant (ir-element)
-  ((type-info :initarg type-info :accessor type-info)
-   (value :initarg form)))
-
-(defun make-ir-const (form type)
-  (make-instance 'constant 'form form 'type-info (simple-type-info type)))
 
 (defmethod type-description ((form constant))
   (funcall (type-info form)))
@@ -196,7 +197,27 @@ ARITY is number of arguments of function.
           (slot-value obj 'function)
           (slot-value obj 'arguments)))
 
+
 (eval-when (:compile-toplevel :load-toplevel :execute)
+  (defconstant +TRUE+ 'typel:true)
+  (defconstant +FALSE+ 'typel:false)
+
+  (defun convert-to-ir (form)
+    (if (or (eq form +TRUE+)
+            (eq form +FALSE+))
+        (make-ir-const form +boolean+)
+      (etypecase form
+        (symbol
+         (make-ir-var form))
+        (integer
+         (make-ir-const form +integer+))
+        (string
+         (make-ir-const form +string+))
+        (float
+         (make-ir-const form +float+))
+        (cons
+         (make-ir (first form) (rest form))))))
+
   (defun fill-namespace (var-list)
     (dolist (var var-list)
       (let ((id-info (make-id-info :name var
@@ -421,25 +442,6 @@ ARITY is number of arguments of function.
 
 (defmethod type-description ((quote-form quote-form))
   (values +symbol+ nil))
-
-(defconstant +TRUE+ 'typel:true)
-(defconstant +FALSE+ 'typel:false)
-
-(defun convert-to-ir (form)
-  (if (or (eq form +TRUE+)
-          (eq form +FALSE+))
-      (make-ir-const form +boolean+)
-      (etypecase form
-        (symbol
-         (make-ir-var form))
-        (integer
-         (make-ir-const form +integer+))
-        (string
-         (make-ir-const form +string+))
-        (float
-         (make-ir-const form +float+))
-        (cons
-         (make-ir (first form) (rest form))))))
 
 (defmethod make-ir (function args)
   (make-instance 'funcall-elem

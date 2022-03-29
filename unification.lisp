@@ -11,6 +11,7 @@
 ;;; TODO: s/solution/substitution/g
 
 (cl:defpackage #:typel-unification
+  (:use #:cl)
   (:export
    #:resolve-equation
    #:substitute-solution
