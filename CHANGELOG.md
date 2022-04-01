@@ -1,5 +1,8 @@
 # Changelog
 
+## Current
+- Reorganize source directory.
+
 ## [0.2] 2022-04-01
 - Fix compilation on SBCL with `eval-when`.
 - Add ASDF config.
