@@ -1,6 +1,6 @@
 (defsystem "typel"
   :depends-on ()
-  :version "0.1.1"
+  :version "0.2"
   :author "Ivan Boldyrev <lispnik@gmail.com>"
   :license "MIT License"
   :components ((:file "runtime")
